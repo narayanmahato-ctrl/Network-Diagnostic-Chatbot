@@ -16,7 +16,11 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api")
-@CrossOrigin(origins = {"http://localhost:3000", "http://127.0.0.1:3000"})
+@CrossOrigin(origins = {
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://narayanmahato-ctrl.github.io"
+})
 public class ChatbotController {
 
     /**

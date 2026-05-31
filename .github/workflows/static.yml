@@ -42,6 +42,8 @@ jobs:
         run: npm ci
       - name: Build frontend
         working-directory: frontend
+        env:
+          REACT_APP_API_BASE_URL: ${{ vars.REACT_APP_API_BASE_URL }}
         run: npm run build
       - name: Setup Pages
         uses: actions/configure-pages@v5

@@ -8,6 +8,68 @@ import ThemeToggle from './components/ThemeToggle';
 import DashboardPanel from './components/DashboardPanel';
 import ProfilePage from './components/ProfilePage';
 
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8080/api';
+
+const getBrowserSystemInfo = () => ({
+  hostname: window.location.hostname || 'browser',
+  ipAddress: 'Browser protected',
+  osName: navigator.platform || 'Browser',
+  javaVersion: 'Backend offline'
+});
+
+const getBrowserFallback = (command) => {
+  const [commandName] = command.trim().toLowerCase().split(/\s+/);
+  const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  const onlineStatus = navigator.onLine ? 'Online' : 'Offline';
+
+  if (['info', 'network', 'status'].includes(commandName)) {
+    return {
+      output: [
+        'BROWSER NETWORK INFO',
+        `Status: ${onlineStatus}`,
+        `Host: ${window.location.hostname || 'browser'}`,
+        `Platform: ${navigator.platform || 'Unavailable'}`,
+        `Connection: ${connection?.effectiveType || 'Unavailable'}`,
+        '',
+        'Note: IP address and adapter details require the Java backend.'
+      ].join('\n'),
+      status: 'BROWSER',
+      commandType: commandName
+    };
+  }
+
+  if (commandName === 'help' || commandName === '?') {
+    return {
+      output: [
+        'AVAILABLE COMMANDS',
+        'info | network | status',
+        'ping <hostname>',
+        'dns <hostname>',
+        'port <hostname> <port>',
+        'connect <hostname> [port]',
+        'trace <hostname>',
+        '',
+        'This public GitHub Pages demo can show browser network info.',
+        'Ping, DNS, port, connect, and trace commands require the Java backend.'
+      ].join('\n'),
+      status: 'BROWSER',
+      commandType: commandName
+    };
+  }
+
+  return {
+    output: [
+      `The "${command}" diagnostic requires the Java backend.`,
+      '',
+      'The public GitHub Pages site currently hosts the frontend only.',
+      'Run the backend locally or configure a deployed API URL to enable this command.'
+    ].join('\n'),
+    status: 'BACKEND REQUIRED',
+    commandType: commandName,
+    isError: true
+  };
+};
+
 function App() {
   const [messages, setMessages] = useState([
     {
@@ -55,8 +117,6 @@ function App() {
     try { localStorage.setItem('theme', theme); } catch (e) {}
   }, [theme]);
 
-  const API_BASE_URL = 'http://localhost:8080/api';
-
   useEffect(() => {
     fetchSystemInfo();
   }, []);
@@ -81,6 +141,7 @@ function App() {
       setSystemInfo(response.data);
     } catch (error) {
       console.error('Error fetching system info:', error);
+      setSystemInfo(getBrowserSystemInfo());
     }
   };
 
@@ -96,6 +157,10 @@ function App() {
     setIsLoading(true);
 
     try {
+      if (window.location.protocol === 'https:' && API_BASE_URL.startsWith('http://')) {
+        throw new Error('Secure frontend requires a deployed HTTPS backend');
+      }
+
       const response = await axios.post(
         `${API_BASE_URL}/command`,
         { command },
@@ -112,12 +177,16 @@ function App() {
       };
       setMessages(prev => [...prev, botMessage]);
     } catch (error) {
+      console.error('Error executing command:', error);
+      const fallback = getBrowserFallback(command);
       const errorMessage = {
         id: ++messageIdRef.current,
-        text: `Error: ${error.response?.data?.message || error.message || 'Failed to execute command'}`,
+        text: fallback.output,
         sender: 'bot',
         timestamp: new Date(),
-        isError: true
+        status: fallback.status,
+        commandType: fallback.commandType,
+        isError: fallback.isError
       };
       setMessages(prev => [...prev, errorMessage]);
     } finally {
