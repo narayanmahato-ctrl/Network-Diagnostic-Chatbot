@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "React frontend for Network Diagnostic Chatbot",
   "private": true,
-  "homepage": "/",
+  "homepage": ".",
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
