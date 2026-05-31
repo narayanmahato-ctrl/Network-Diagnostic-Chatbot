@@ -10,11 +10,22 @@ import ProfilePage from './components/ProfilePage';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8080/api';
 
-const getBrowserSystemInfo = () => ({
+const getPublicIpAddress = async () => {
+  try {
+    const response = await fetchWithTimeout('https://api.ipify.org?format=json');
+    const result = await response.json();
+    return result.ip || 'Unavailable';
+  } catch (error) {
+    console.error('Error fetching public IP address:', error);
+    return 'Unavailable';
+  }
+};
+
+const getBrowserSystemInfo = async () => ({
   hostname: window.location.hostname || 'browser',
-  ipAddress: 'Browser protected',
+  ipAddress: await getPublicIpAddress(),
   osName: navigator.platform || 'Browser',
-  javaVersion: 'Backend offline'
+  javaVersion: 'Browser mode'
 });
 
 const fetchWithTimeout = async (url, options = {}, timeout = 8000) => {
@@ -52,15 +63,15 @@ const getBrowserFallback = async (command) => {
   const onlineStatus = navigator.onLine ? 'Online' : 'Offline';
 
   if (['info', 'network', 'status'].includes(commandName)) {
+    const publicIpAddress = await getPublicIpAddress();
     return {
       output: [
         'BROWSER NETWORK INFO',
         `Status: ${onlineStatus}`,
         `Host: ${window.location.hostname || 'browser'}`,
+        `Public IP: ${publicIpAddress}`,
         `Platform: ${navigator.platform || 'Unavailable'}`,
-        `Connection: ${connection?.effectiveType || 'Unavailable'}`,
-        '',
-        'Note: IP address and adapter details require the Java backend.'
+        `Connection: ${connection?.effectiveType || 'Unavailable'}`
       ].join('\n'),
       status: 'BROWSER',
       commandType: commandName
@@ -284,7 +295,7 @@ function App() {
       setSystemInfo(response.data);
     } catch (error) {
       console.error('Error fetching system info:', error);
-      setSystemInfo(getBrowserSystemInfo());
+      setSystemInfo(await getBrowserSystemInfo());
     }
   };
 
