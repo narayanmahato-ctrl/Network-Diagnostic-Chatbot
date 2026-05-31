@@ -1,0 +1,10 @@
+HTTP/1.1 400 
+Vary: Origin
+Vary: Access-Control-Request-Method
+Vary: Access-Control-Request-Headers
+Content-Type: application/json
+Transfer-Encoding: chunked
+Date: Sat, 30 May 2026 05:19:03 GMT
+Connection: close
+
+{"timestamp":"2026-05-30T05:19:03.204+00:00","status":400,"error":"Bad Request","path":"/api/command"}

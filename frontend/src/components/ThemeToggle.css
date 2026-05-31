@@ -1,0 +1,61 @@
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.theme-toggle .icon {
+  font-size: 14px;
+  opacity: 0.9;
+  width: 18px;
+  text-align: center;
+}
+
+.theme-toggle .switch {
+  width: 46px;
+  height: 26px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 999px;
+  position: relative;
+  display: inline-block;
+  padding: 3px;
+  transition: background 250ms ease, transform 250ms ease;
+}
+
+.theme-toggle:hover .switch {
+  transform: scale(1.04);
+}
+
+.theme-toggle .knob {
+  width: 18px;
+  height: 18px;
+  background: linear-gradient(180deg, #fff, #e6e6e6);
+  border-radius: 50%;
+  display: block;
+  transform: translateX(0);
+  transition: transform 240ms cubic-bezier(.2,.9,.3,1), box-shadow 240ms, background 240ms ease;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+
+.theme-toggle.dark .switch {
+  background: linear-gradient(90deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+}
+
+.theme-toggle.dark .knob {
+  transform: translateX(20px);
+  background: linear-gradient(180deg, #111, #333);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.45);
+}
+
+.theme-toggle:focus {
+  outline: 2px solid rgba(102,126,234,0.28);
+  outline-offset: 4px;
+}
+
