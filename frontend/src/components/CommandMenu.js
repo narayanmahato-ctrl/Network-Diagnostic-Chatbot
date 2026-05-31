@@ -8,7 +8,7 @@ function CommandMenu({ onCommandSelect, isLoading, isActive, onInactiveAttempt }
     { label: '❓ Help', cmd: 'help' },
     { label: '🔗 Ping Google', cmd: 'ping google.com' },
     { label: '🌐 DNS Google', cmd: 'dns google.com' },
-    { label: '🚪 Port Check', cmd: 'port google.com 80' },
+    { label: '🚪 Port Check', cmd: 'port google.com 443' },
   ];
 
   return (

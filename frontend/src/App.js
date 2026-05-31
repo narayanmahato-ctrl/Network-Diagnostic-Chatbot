@@ -17,8 +17,37 @@ const getBrowserSystemInfo = () => ({
   javaVersion: 'Backend offline'
 });
 
-const getBrowserFallback = (command) => {
-  const [commandName] = command.trim().toLowerCase().split(/\s+/);
+const fetchWithTimeout = async (url, options = {}, timeout = 8000) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+};
+
+const isValidHost = (host) => /^[a-z0-9.-]+$/i.test(host || '');
+
+const probeWebHost = async (host, port) => {
+  if (!isValidHost(host)) {
+    throw new Error('Enter a valid hostname, such as google.com');
+  }
+
+  const protocol = port === '80' ? 'http' : 'https';
+  const portSuffix = port && !['80', '443'].includes(port) ? `:${port}` : '';
+  const startedAt = performance.now();
+  await fetchWithTimeout(`${protocol}://${host}${portSuffix}/favicon.ico`, {
+    mode: 'no-cors',
+    cache: 'no-store'
+  });
+
+  return Math.round(performance.now() - startedAt);
+};
+
+const getBrowserFallback = async (command) => {
+  const [commandName, host, port] = command.trim().toLowerCase().split(/\s+/);
   const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
   const onlineStatus = navigator.onLine ? 'Online' : 'Offline';
 
@@ -38,6 +67,119 @@ const getBrowserFallback = (command) => {
     };
   }
 
+  if (commandName === 'ping') {
+    try {
+      const duration = await probeWebHost(host);
+      return {
+        output: [
+          `BROWSER CONNECTIVITY CHECK: ${host}`,
+          `Status: Reachable over HTTPS`,
+          `Response time: ${duration} ms`,
+          '',
+          'Note: Browsers cannot send raw ICMP packets. This is a timed HTTPS reachability check.'
+        ].join('\n'),
+        status: 'SUCCESS',
+        commandType: commandName
+      };
+    } catch (error) {
+      return {
+        output: `Could not reach ${host || 'the requested host'} over HTTPS: ${error.message}`,
+        status: 'FAILED',
+        commandType: commandName,
+        isError: true
+      };
+    }
+  }
+
+  if (commandName === 'dns' || commandName === 'resolve') {
+    if (!isValidHost(host)) {
+      return {
+        output: 'Enter a valid hostname, such as dns google.com',
+        status: 'FAILED',
+        commandType: commandName,
+        isError: true
+      };
+    }
+
+    try {
+      const response = await fetchWithTimeout(`https://dns.google/resolve?name=${encodeURIComponent(host)}&type=A`);
+      const result = await response.json();
+      const addresses = (result.Answer || [])
+        .filter((answer) => answer.type === 1)
+        .map((answer) => answer.data);
+
+      return {
+        output: [
+          `DNS LOOKUP: ${host}`,
+          `Status: ${addresses.length ? 'Resolved' : 'No IPv4 records found'}`,
+          ...addresses.map((address) => `Address: ${address}`)
+        ].join('\n'),
+        status: addresses.length ? 'SUCCESS' : 'FAILED',
+        commandType: commandName,
+        isError: !addresses.length
+      };
+    } catch (error) {
+      return {
+        output: `DNS lookup failed for ${host}: ${error.message}`,
+        status: 'FAILED',
+        commandType: commandName,
+        isError: true
+      };
+    }
+  }
+
+  if (commandName === 'port' || commandName === 'connect') {
+    const requestedPort = port || '443';
+
+    if (requestedPort === '80' && window.location.protocol === 'https:') {
+      return {
+        output: [
+          'Browser security blocks plain HTTP port 80 checks from an HTTPS page.',
+          'Try port 443 in the public demo.',
+          'Use the Java backend for a raw TCP check of port 80.'
+        ].join('\n'),
+        status: 'BACKEND REQUIRED',
+        commandType: commandName,
+        isError: true
+      };
+    }
+
+    if (!['80', '443'].includes(requestedPort)) {
+      return {
+        output: [
+          `Browser security prevents direct TCP checks for port ${requestedPort}.`,
+          'The public demo supports web reachability checks for ports 80 and 443.',
+          'Use the Java backend for arbitrary TCP port diagnostics.'
+        ].join('\n'),
+        status: 'BACKEND REQUIRED',
+        commandType: commandName,
+        isError: true
+      };
+    }
+
+    try {
+      const duration = await probeWebHost(host, requestedPort);
+      return {
+        output: [
+          `WEB PORT CHECK: ${host}:${requestedPort}`,
+          'Status: Reachable',
+          `Response time: ${duration} ms`,
+          '',
+          'Note: This confirms HTTP(S) reachability. Use the Java backend for raw TCP checks.'
+        ].join('\n'),
+        status: 'SUCCESS',
+        commandType: commandName
+      };
+    } catch (error) {
+      return {
+        output: `Could not reach ${host || 'the requested host'}:${requestedPort}: ${error.message}`,
+        status: 'FAILED',
+        commandType: commandName,
+        isError: true
+      };
+    }
+  }
+
   if (commandName === 'help' || commandName === '?') {
     return {
       output: [
@@ -49,8 +191,9 @@ const getBrowserFallback = (command) => {
         'connect <hostname> [port]',
         'trace <hostname>',
         '',
-        'This public GitHub Pages demo can show browser network info.',
-        'Ping, DNS, port, connect, and trace commands require the Java backend.'
+        'The public demo supports browser network info, HTTPS connectivity checks,',
+        'DNS lookup, and web reachability checks for ports 80 and 443.',
+        'Raw TCP checks and traceroute require the Java backend.'
       ].join('\n'),
       status: 'BROWSER',
       commandType: commandName
@@ -178,7 +321,7 @@ function App() {
       setMessages(prev => [...prev, botMessage]);
     } catch (error) {
       console.error('Error executing command:', error);
-      const fallback = getBrowserFallback(command);
+      const fallback = await getBrowserFallback(command);
       const errorMessage = {
         id: ++messageIdRef.current,
         text: fallback.output,
